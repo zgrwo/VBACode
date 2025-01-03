@@ -1,9 +1,7 @@
-'''
-    1. 部分自定义函数 / 过程，可一定程度实现新版 Excel 内置函数的功能
-    2. 部分自定义函数 / 过程，具有相当程度的使用频率
-    3. 作者：Samov Ran / zgrwo@163.com
-    4. 不是经过严格测试过的代码，仅供学习和参考
-'''
+Option Explicit
+
+Public Const DELIMITER_CODE As Integer = 1
+
 Function CFILTER(ByVal dataSource As Variant, ByVal expIncludes As Variant, Optional byCol As Boolean = False, Optional ByRef valEmpty As Variant = Null) As Variant
 
     ' dataSource 数据源
@@ -94,8 +92,9 @@ End Function
 Function CUNIQUE(arr As Variant, Optional by_col As Boolean = False, Optional exactly_once As Boolean = False) As Variant
 
     ' 功能：从输入数据中提取唯一值，并保持维度与原数据一致
-    ' dataSource 数据源，（1个字符串|1个单元格区域|1-2维数组）
-    ' byCol 是否按列提取唯一值，默认为：False，表示按行提取
+    ' arr 数据源，（1个字符串|1个单元格区域|1-2维数组）
+    ' by_col 是否按列提取唯一值，默认为：False，表示按行提取
+    ' exactly_once 是否提取仅出现一次的值，默认为：False，表示将提取不重复值，如果出现多次，则保留一次
     ' 返回值：提取唯一值后的二维数组或错误值
 
     On Error GoTo ErrorHandler
@@ -116,7 +115,8 @@ Function CUNIQUE(arr As Variant, Optional by_col As Boolean = False, Optional ex
     
     ' 检查数据维度
     Dim m As Long, n As Long
-    GetArrayDimensions data, m, n
+    m = UBound(data, 1) - LBound(data, 1) + 1
+    n = UBound(data, 2) - LBound(data, 2) + 1
     
     ' 如果是单列且按列处理，直接返回原数据
     If by_col And n = 1 Then
@@ -245,7 +245,6 @@ Function GetArrayDimension(varData As Variant) As Integer
 
 ErrorHandler:
     MsgBox "Error: Source - " & Err.Source & ", Number - " & Err.Number & ", Description - " & Err.Description, vbCritical, "Error"
-    GetArrayDimension = -1
 End Function
 
 Function ProcessValue(varInput As Variant) As Variant
@@ -268,7 +267,7 @@ Function ProcessValue(varInput As Variant) As Variant
                 ProcessValue = CVErr(xlErrRef)
                 Exit Function
             End If
-            varTemp = varInput.Value2
+            varTemp = varInput.value
         Else
             ProcessValue = CVErr(xlErrRef)
             Exit Function
@@ -308,7 +307,6 @@ Function ProcessValue(varInput As Variant) As Variant
 
 ErrorHandler:
     MsgBox "Error: Source - " & Err.Source & ", Number - " & Err.Number & ", Description - " & Err.Description, vbCritical, "Error"
-    ProcessValue = CVErr(xlErrRef)
 End Function
 
 Sub GetArrayDimensions(arrSource As Variant, ByRef m As Long, ByRef n As Long, Optional Standardization As Boolean = True)
