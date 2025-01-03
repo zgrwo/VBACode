@@ -91,6 +91,113 @@ ErrorHandler:
     CFILTER = CVErr(xlErrValue) ' 发生错误时返回#VALUE!
 End Function
 
+Function CUNIQUE(arr As Variant, Optional by_col As Boolean = False, Optional exactly_once As Boolean = False) As Variant
+
+    ' 功能：从输入数据中提取唯一值，并保持维度与原数据一致
+    ' dataSource 数据源，（1个字符串|1个单元格区域|1-2维数组）
+    ' byCol 是否按列提取唯一值，默认为：False，表示按行提取
+    ' 返回值：提取唯一值后的二维数组或错误值
+
+    On Error GoTo ErrorHandler
+    
+    ' 输入验证
+    If IsEmpty(arr) Or IsNull(arr) Then
+        CUNIQUE = CVErr(xlErrValue)
+        Exit Function
+    End If
+    
+    ' 初始化字典
+    Dim uniqueItems As Object
+    Set uniqueItems = CreateObject("Scripting.Dictionary")
+    
+    ' 处理输入数据
+    Dim data As Variant
+    data = ProcessValue(arr)
+    
+    ' 检查数据维度
+    Dim m As Long, n As Long
+    GetArrayDimensions data, m, n
+    
+    ' 如果是单列且按列处理，直接返回原数据
+    If by_col And n = 1 Then
+        CUNIQUE = data
+        Exit Function
+    End If
+    
+    ' 按列处理时，转置数据
+    If by_col Then
+        data = Application.Transpose(data)
+    End If
+    
+    ' 定义分隔符
+    Dim delimiter As String
+    delimiter = Chr$(DELIMITER_CODE)
+    
+    ' 统计每行或每列的出现次数
+    Dim i As Long, j As Long
+    Dim key As Variant
+    For i = LBound(data, 1) To UBound(data, 1)
+        key = Join(Application.index(data, i, 0), delimiter) ' 将行或列拼接为字符串作为 Key
+        If Not uniqueItems.exists(key) Then
+            uniqueItems.Add key, 1 ' 初始化出现次数为 1
+        Else
+            uniqueItems(key) = uniqueItems(key) + 1 ' 增加出现次数
+        End If
+    Next i
+    
+    ' 准备输出数组
+    Dim output() As Variant
+    Dim count As Long
+    count = 0
+    
+    ' 遍历字典，统计符合条件的项数
+    For Each key In uniqueItems.keys
+        If Not exactly_once Or uniqueItems(key) = 1 Then
+            count = count + 1
+        End If
+    Next key
+    
+    ' 如果没有任何符合条件的值，返回错误值
+    If count = 0 Then
+        ReDim output(1 To 1, 1 To 1)
+        output(1, 1) = CVErr(xlErrNA)
+        CUNIQUE = output
+        Exit Function
+    End If
+    
+    ' 重新定义输出数组的大小
+    ReDim output(1 To count, 1 To UBound(data, 2) + 1) ' 最后一列用于存储出现次数
+    
+    ' 填充输出数组
+    Dim rowIndex As Long
+    rowIndex = 1
+    For Each key In uniqueItems.keys
+        If Not exactly_once Or uniqueItems(key) = 1 Then
+            ' 拆分 Key 为数组，填充到输出数组
+            Dim values As Variant
+            values = Split(key, delimiter)
+            For j = LBound(values) To UBound(values)
+                output(rowIndex, j + 1) = values(j)
+            Next j
+            ' 最后一列存储出现次数
+            output(rowIndex, UBound(data, 2) + 1) = uniqueItems(key)
+            rowIndex = rowIndex + 1
+        End If
+    Next key
+    
+    ' 按列处理时，转置输出数组
+    If by_col Then
+        output = Application.Transpose(output)
+    End If
+    
+    CUNIQUE = output
+    Exit Function
+    
+ErrorHandler:
+    MsgBox "Error: Source - " & Err.Source & ", Number - " & Err.Number & ", Description - " & Err.Description, vbCritical, "Error"
+    CUNIQUE = CVErr(xlErrValue) ' 发生错误时返回#VALUE!
+End Function
+
 Function GetArrayDimension(varData As Variant) As Integer
 
     ' 用于计算 varData 的维度
@@ -138,6 +245,7 @@ Function GetArrayDimension(varData As Variant) As Integer
 
 ErrorHandler:
     MsgBox "Error: Source - " & Err.Source & ", Number - " & Err.Number & ", Description - " & Err.Description, vbCritical, "Error"
+    GetArrayDimension = -1
 End Function
 
 Function ProcessValue(varInput As Variant) As Variant
@@ -200,6 +308,7 @@ Function ProcessValue(varInput As Variant) As Variant
 
 ErrorHandler:
     MsgBox "Error: Source - " & Err.Source & ", Number - " & Err.Number & ", Description - " & Err.Description, vbCritical, "Error"
+    ProcessValue = CVErr(xlErrRef)
 End Function
 
 Sub GetArrayDimensions(arrSource As Variant, ByRef m As Long, ByRef n As Long, Optional Standardization As Boolean = True)
